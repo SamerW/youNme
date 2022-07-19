@@ -123,5 +123,26 @@ async def create_user(user: UserIn_Pydantic):
     
     return await User_Pydantic.from_tortoise_orm(user_ob)
 
+@app.post('/token')
+async def token(form_data: OAuth2PasswordRequestForm = Depends()):
+    print(form_data.username, form_data.password)
+    user = await authenticate_user(form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(status_code = 401, detail="Invalid Username or Password!")
+   
+
+    user_obj = await User_Pydantic.from_tortoise_orm(user)
+    # print(user_obj.password_hash)
+    # print(hashlib.sha256(form_data.password.encode('utf_8')).hexdigest())
+    
+    if user_obj.password_hash != hashlib.sha256(form_data.password.encode('utf_8')).hexdigest():
+        raise HTTPException(status_code = 401, detail="Invalid Username or Password!")
+    ob_dict = user_obj.dict()
+    print(ob_dict)
+    token = jwt.encode(ob_dict, JWT_SECRET)
+    print(token)
+
+    return {"access_token": token, 'token_type':  'bearer'}
+
 
     
