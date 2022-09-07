@@ -1,4 +1,5 @@
-from signal_protocol import curve, identity_key, state, storage
+from blinker import receiver_connected
+# from signal_protocol import curve, identity_key, state, storage
 from fastapi import FastAPI, File, UploadFile, HTTPException, status,Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from tortoise import fields
@@ -8,10 +9,10 @@ from tortoise.contrib.fastapi import register_tortoise
 from tortoise.contrib.pydantic import pydantic_model_creator
 from pydantic import BaseModel
 import jwt
+import hashlib
 
 
-
-server_identity_keys = identity_key.IdentityKeyPair.generate()
+# server_identity_keys = identity_key.IdentityKeyPair.generate()
 
 
 JWT_SECRET = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.c3N3b3JkX2hhc2giOiJlYzE4NTc5NWQ3MTFkM2NkNmI1NeyJpZCI6MiwidXNlcm5hbWUiOiJSOCIsInBhjYzZDNhNTQ2NTFjNzIwYThmMzExMW"
@@ -49,13 +50,30 @@ async def get_current_user(token: str=Depends(oa2)):
 
 
 
+class MessageSent(BaseModel):
+    message_con : str
+    to : str
+
+
+
+class Userr(BaseModel):
+    name: str
+    lastname: str
+    email: str
+    password: str
+
+
+
+
+
+
 class Server:
     def __init__(self, pk, sk):
-        self.pk = pk
-        self.sk = sk
+        self.pk = "pk"
+        self.sk = "sk"
 
 
-server = Server()
+server = Server(1,2)
 
 class User(Model):
     id = fields.IntField(pk=True)
@@ -67,6 +85,12 @@ class User(Model):
 
     public_key = fields.CharField(max_length=530, null = True)
      #CharField(max_length= 1024, null= True)     #CharField(max_length= 1024, null= True)
+     
+    async def get_user(self, username):
+        return self.get(username=username)
+
+    def verify_password(self, password):
+        return True
 
 
 
@@ -145,4 +169,46 @@ async def token(form_data: OAuth2PasswordRequestForm = Depends()):
     return {"access_token": token, 'token_type':  'bearer'}
 
 
+
+@app.post('/message')
+async def message(message: MessageSent, user: User_Pydantic= Depends(get_current_user)):
+    message_con = message.message_con
+    receiver = message.to
+    print(receiver)
+    
+
+    receiver = await User.get(username= receiver)
+    
+    
+    
+    sender = await User.get(username = user.username)
+    print("here here")
+
+    message = await Message(sender = sender, receiver = receiver , message = message_con)
+    print("here here  1.2")
+    await message.save()
+    
+    
+    
+    another = await Message.get(message= message_con)
+    
+    print("here here 3")
+
+    return another 
+    
+    
+@app.post('/loadmessage')
+async def message(message: MessageSent, user: User_Pydantic= Depends(get_current_user)):
+    messages = await Message.filter(receiver = user.id, delivered= 1)
+    for message in messages:
+        message.delivered = 1
+        await message.save()
+        print(message.sender_id)
+        try:
+            message.sender_id = await User.get(id = message.sender_id)
+        except:
+            pass
+    return messages
+    
+ 
     
