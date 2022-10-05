@@ -205,8 +205,10 @@ async def token(form_data: OAuth2PasswordRequestForm = Depends()):
 
 @app.post('/message')
 async def message(message: MessageSent, user: User_Pydantic= Depends(get_current_user)):
-    message_con = message.message_con
-    receiver = message.to
+    
+    
+    message_con = pickle.loads(rsa.decrypt(base64.b64decode(message.message_con), server.pk))
+    receiver = pickle.loads(rsa.decrypt(base64.b64decode(message.to), server.pk))
     print(receiver)
     
 
