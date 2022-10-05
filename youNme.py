@@ -10,6 +10,10 @@ from tortoise.contrib.pydantic import pydantic_model_creator
 from pydantic import BaseModel
 import jwt
 import hashlib
+import rsa
+import pickle
+
+
 
 
 # server_identity_keys = identity_key.IdentityKeyPair.generate()
@@ -69,11 +73,39 @@ class Userr(BaseModel):
 
 class Server:
     def __init__(self, pk, sk):
-        self.pk = "pk"
-        self.sk = "sk"
+        self.pk = pk
+        self.sk = sk
+
+try:
+    with open("priv.k", "rb") as f:
+        priv  = f.read()
+    priv_key = pickle.loads(priv)
+    with open("pub.k", "rb") as f:
+        pub  = f.read()
+        print(type(pub))
+    pub_key = pickle.loads(pub)
+    print(type(pub_key))
+# priv_key = rsa.PrivateKey.load_pkcs1(priv)
+    # pub_key = rsa.PublicKey.load_pkcs1(priv)
+    
+    print("Read it, ") 
+    print(priv_key)
+    print(pub_key)
+            
+        
+        
+
+except:
+    pub_key , priv_key= rsa.newkeys(512)
+    print("Printed It",  priv_key)
+    print( pub_key)
+    with open("priv.k", "wb") as f:
+        pickle.dump(priv_key, f)
+    with open("pub.k", "wb") as f:
+        pickle.dump(pub_key, f)
 
 
-server = Server(1,2)
+server = Server(priv_key,pub_key)
 
 class User(Model):
     id = fields.IntField(pk=True)
@@ -128,13 +160,14 @@ User_Pydantic = pydantic_model_creator(User, name='User')
 UserIn_Pydantic = pydantic_model_creator(User, name='UserIn', exclude_readonly=True)
 
 
-
+import base64
 
 @app.get('/getserversk')
 async def getServerPublicKey():
-    server_SK = await server.sk
+    server_SK = server.sk
     server_SK = server_SK
-    return {"Server_SK": server_SK}
+    string = base64.b64encode(pickle.dumps(server_SK)).decode()
+    return {"Server_public_K": string}
 
 
 
@@ -185,12 +218,13 @@ async def message(message: MessageSent, user: User_Pydantic= Depends(get_current
     print("here here")
 
     message = await Message(sender = sender, receiver = receiver , message = message_con)
-    print("here here  1.2")
+    
     await message.save()
+    idn = message.id
     
     
     
-    another = await Message.get(message= message_con)
+    another = await Message.get(id= idn)
     
     print("here here 3")
  
@@ -199,7 +233,7 @@ async def message(message: MessageSent, user: User_Pydantic= Depends(get_current
     
 @app.post('/loadmessage')
 async def message(message: MessageSent, user: User_Pydantic= Depends(get_current_user)):
-    messages = await Message.filter(receiver = user.id, delivered= 1)
+    messages = await Message.filter(receiver = user.id, delivered= 0)
     for message in messages:
         message.delivered = 1
         await message.save()
